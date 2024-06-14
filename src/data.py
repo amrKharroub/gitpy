@@ -1,7 +1,27 @@
-import os, sys
-import hashlib, zlib
+import os
+import hashlib, zlib, struct
+from collections import namedtuple
 
+VERSION: int = 2
 GIT_DIR: str = ".gitpie"
+IndexEntry = namedtuple(
+    "IndexEntry",
+    [
+        "ctime_s",  # File creation time in seconds
+        "ctime_n",  # File creation time in nanoseconds
+        "mtime_s",  # File modification time in seconds
+        "mtime_n",  # File modification time in nanoseconds
+        "dev",  # Device number the file resides on
+        "ino",  # Inode number of the file
+        "mode",  # File access permissions
+        "uid",  # User ID of the file owner
+        "gid",  # Group ID of the file owner
+        "size",  # File size in bytes
+        "sha1",  # SHA-1 hash of the file content
+        "flags",  # Optional flags associated with the file
+        "path",  # Path to the file on the filesystem
+    ],
+)
 
 
 def read_file(path: str) -> bytes:
@@ -74,3 +94,61 @@ def read_object(sha1_prefix: str) -> tuple[str, bytes]:
     data = full_data[nul_index + 1 :]
     assert size == len(data), "expected size {}, got {} bytes".format(size, len(data))
     return (obj_type, data)
+
+
+def read_index():
+    """Read git index file and return list of IndexEntry objects."""
+    try:
+        data = read_file(os.path.join(GIT_DIR, "index"))
+    except:
+        return []
+    digest = hashlib.sha1(data[:-20]).digest()
+    assert digest == data[-20:], "invalid index checksum"
+    signature, version, num_entries = struct.unpack("!4sLL", data[:12])
+    assert signature == b"DIRC", "invalid index signature {}".format(signature)
+    assert version == VERSION, "unknown index version {}".format(version)
+    entry_data = data[12:-20]
+    entries = []
+    i = 0
+    while i + 62 < len(entry_data):
+        fields_end = i + 62
+        fields = struct.unpack("!LLLLLLLLLL20sH", entry_data[i:fields_end])
+        path_end = entry_data.index(b"\x00", fields_end)  # starting from fields_end
+        path = entry_data[fields_end:path_end]
+        entry = IndexEntry(*(fields + (path.decode(),)))
+        entries.append(entry)
+        entry_len = ((62 + len(path) + 8) // 8) * 8
+        i += entry_len
+    assert len(entries) == num_entries
+    return entries
+
+
+def write_index(entries: list[IndexEntry]) -> None:
+    """Write list of IndexEntry objects to git index file."""
+    packed_entries = []
+    for entry in entries:
+        entry_head = struct.pack(
+            "!LLLLLLLLLL20sH",
+            entry.ctime_s,
+            entry.ctime_n,
+            entry.mtime_s,
+            entry.mtime_n,
+            entry.dev,
+            entry.ino,
+            entry.mode,
+            entry.uid,
+            entry.gid,
+            entry.size,
+            entry.sha1,
+            entry.flags,
+        )
+        path = entry.path.encode()
+        length = (
+            (62 + len(path) + 8) // 8
+        ) * 8  # Calculate the padded length, a multiple of 8 bytes
+        packed_entry = entry_head + path + b"\x00" * (length - 62 - len(path))
+        packed_entries.append(packed_entry)
+    header = struct.pack("!4sLL", b"DIRC", VERSION, len(entries))
+    all_data = header + b"".join(packed_entries)
+    digest = hashlib.sha1(all_data).digest()
+    write_file(os.path.join(".git", "index"), all_data + digest)

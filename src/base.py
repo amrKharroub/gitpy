@@ -1,6 +1,7 @@
-import sys
+import sys, os
 import string
 import data as d
+import operator
 
 
 def check_oid(oid: str) -> str:
@@ -41,3 +42,62 @@ def cat_file(mode: str, sha1_prefix: str) -> None:
             assert False, "unhandled object type {!r}".format(obj_type)
     else:
         raise ValueError("unexpected mode {!r}".format(mode))
+
+
+def is_ignored(filename: str) -> bool:
+
+    if os.path.exists(".gitignore"):
+        with open(".gitignore", "r") as f:
+            ignored_files = f.readlines()
+        return d.GIT_DIR in os.path.split(filename)
+    return d.GIT_DIR in os.path.split(filename)
+
+
+def flatten_dir(dir: str) -> iter[str]:
+    "flatten a directory"
+    for root, _, filenames in os.walk(dir):
+        for filename in filenames:
+            yield os.path.join(root, filename)
+
+
+def list_files(names: list[str]) -> list[str]:
+    """takes list of file names and directory, outputs list of files that are not ignored, if a directory is present it will be flattened"""
+    output = []
+    for name in names:
+        if os.path.isdir(name):
+            for filename in flatten_dir(name):
+                if not is_ignored(filename):
+                    output.append(filename)
+        elif os.path.isfile(name):
+            if not is_ignored(name):
+                output.append(os.path.relpath(name))
+    return output
+
+
+def add(filepaths: list[str]):
+    """Add files indicated by filenames to index."""
+    all_entries = d.read_index()
+    entries = [e for e in all_entries if e.path not in filepaths]
+    for path in filepaths:
+        sha1 = d.hash_object(d.read_file(path), "blob")
+        st = os.stat(path)
+        flags = len(path.encode())
+        assert flags < (1 << 12)
+        entry = d.IndexEntry(
+            int(st.st_ctime),
+            0,
+            int(st.st_mtime),
+            0,
+            st.st_dev,
+            st.st_ino,
+            st.st_mode,
+            st.st_uid,
+            st.st_gid,
+            st.st_size,
+            bytes.fromhex(sha1),
+            flags,
+            path,
+        )
+        entries.append(entry)
+    entries.sort(key=operator.attrgetter("path"))
+    d.write_index(entries)
