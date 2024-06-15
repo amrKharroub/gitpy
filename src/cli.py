@@ -21,6 +21,10 @@ def add(args):
     base.add(files)
 
 
+def ls_files(args):
+    data.ls_files(args.stage)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -77,3 +81,12 @@ def parse_args():
         "paths", nargs="+", metavar="path", help="path(s) of files to add"
     )
     add_parser.set_defaults(func=add)
+
+    ls_files_parser = commands.add_parser("ls-files", help="list files in index")
+    ls_files_parser.add_argument(
+        "-s",
+        "--stage",
+        action="store_true",
+        help="show object details (mode, hash, and stage number) in addition to path",
+    )
+    ls_files_parser.set_defaults(func=ls_files)
