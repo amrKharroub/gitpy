@@ -60,8 +60,20 @@ def flatten_dir(dir: str) -> iter[str]:
             yield os.path.join(root, filename)
 
 
-def list_files(names: list[str]) -> list[str]:
-    """takes list of file names and directory, outputs list of files that are not ignored, if a directory is present it will be flattened"""
+def get_all_non_ignored_files(names: list[str]) -> list[str]:
+    """
+    This function takes a list of paths (can be files or directories) and returns a list of
+    all non-ignored files found within those paths. It flattens any subdirectories encountered.
+
+    Args:
+        paths (list[str]): A list containing file or directory paths.
+
+    Returns:
+        list[str]: A list containing the full paths of all non-ignored files found.
+
+    Raises:
+        ValueError: If any of the provided paths do not exist.
+    """
     output = []
     for name in names:
         if os.path.isdir(name):
@@ -76,8 +88,10 @@ def list_files(names: list[str]) -> list[str]:
 
 def add(filepaths: list[str]):
     """Add files indicated by filenames to index."""
-    all_entries = d.read_index()
-    entries = [e for e in all_entries if e.path not in filepaths]
+    all_entries: list[d.IndexEntry] = d.read_index()
+    entries = [
+        e for e in all_entries if os.path.exists(e.path) and e.path not in filepaths
+    ]
     for path in filepaths:
         sha1 = d.hash_object(d.read_file(path), "blob")
         st = os.stat(path)
@@ -85,9 +99,9 @@ def add(filepaths: list[str]):
         assert flags < (1 << 12)
         entry = d.IndexEntry(
             int(st.st_ctime),
-            0,
+            int(st.st_ctime_ns),
             int(st.st_mtime),
-            0,
+            int(st.st_mtime_ns),
             st.st_dev,
             st.st_ino,
             st.st_mode,

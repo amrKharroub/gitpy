@@ -16,6 +16,11 @@ def cat_file(args):
     base.cat_file(args.mode, args.oid)
 
 
+def add(args):
+    files = base.get_all_non_ignored_files(args.paths)
+    base.add(files)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
@@ -66,3 +71,9 @@ def parse_args():
         help="SHA-1 hash (or hash prefix) of object to display",
     )
     cat_file_parser.set_defaults(func=cat_file)
+
+    add_parser = commands.add_parser("add", help="add file(s) to index")
+    add_parser.add_argument(
+        "paths", nargs="+", metavar="path", help="path(s) of files to add"
+    )
+    add_parser.set_defaults(func=add)
