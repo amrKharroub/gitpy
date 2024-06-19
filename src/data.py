@@ -1,6 +1,7 @@
 import os
 import hashlib, zlib, struct
 from collections import namedtuple
+import time
 
 VERSION: int = 2
 GIT_DIR: str = ".gitpie"
@@ -55,7 +56,7 @@ def hash_object(data: bytes, obj_type: str, write: bool = True) -> str:
     full_data = header + b"\x00" + data
     sha1 = hashlib.sha1(full_data).hexdigest()
     if write:
-        path = os.path.join(".git", "objects", sha1[:2], sha1[2:])
+        path = os.path.join(GIT_DIR, "objects", sha1[:2], sha1[2:])
         if not os.path.exists(path):
             os.makedirs(os.path.dirname(path), exist_ok=True)
             write_file(path, zlib.compress(full_data))
@@ -69,7 +70,7 @@ def find_object(sha1_prefix: str) -> str:
     """
     if len(sha1_prefix) < 2:
         raise ValueError("hash prefix must be 2 or more characters")
-    obj_dir = os.path.join(".git", "objects", sha1_prefix[:2])
+    obj_dir = os.path.join(GIT_DIR, "objects", sha1_prefix[:2])
     rest = sha1_prefix[2:]
     objects = [name for name in os.listdir(obj_dir) if name.startswith(rest)]
     if not objects:
@@ -151,7 +152,7 @@ def write_index(entries: list[IndexEntry]) -> None:
     header = struct.pack("!4sLL", b"DIRC", VERSION, len(entries))
     all_data = header + b"".join(packed_entries)
     digest = hashlib.sha1(all_data).digest()
-    write_file(os.path.join(".git", "index"), all_data + digest)
+    write_file(os.path.join(GIT_DIR, "index"), all_data + digest)
 
 
 def ls_files(details=False):
@@ -168,3 +169,74 @@ def ls_files(details=False):
             )
         else:
             print(entry.path)
+
+
+def write_tree():
+    """Write a tree object from the current index entries."""
+    tree_entries = []
+    for entry in read_index():
+        mode_path = "{:o} {}".format(entry.mode, entry.path).encode()
+        tree_entry = mode_path + b"\x00" + entry.sha1
+        tree_entries.append(tree_entry)
+    return hash_object(b"".join(tree_entries), "tree")
+
+
+# TODO rename this function
+def get_local_master_hash(ref: str, deref=True) -> str:
+    """Get current commit hash (SHA-1 string) of local master branch."""
+    master_path = os.path.join(GIT_DIR, ref)
+    try:
+        head_pointer = read_file(master_path).decode().strip()
+    except FileNotFoundError:
+        return ref
+    if head_pointer.startswith("ref: "):
+        if deref:
+            return get_local_master_hash(head_pointer.split(":", 1)[1], deref=True)
+        return head_pointer.split(":", 1)[1]
+    else:
+        return head_pointer
+
+
+def update_ref(ref: str, value: str, deref: bool = True):
+    ref = get_local_master_hash(ref, deref=deref)
+    assert value, f"expected a hash string {value} was given"
+    ref_path = os.path.join(GIT_DIR, ref)
+    write_file(ref_path, value.encode())
+
+
+def commit(message, author=None):
+    """Commit the current state of the index to master with given message.
+    Return hash of commit object.
+    """
+    tree = write_tree()
+    parent = get_local_master_hash("HEAD")
+    if author is None:
+        author = "{} <{}>".format(
+            os.environ["GIT_AUTHOR_NAME"], os.environ["GIT_AUTHOR_EMAIL"]
+        )
+    timestamp = int(time.mktime(time.localtime()))
+    utc_offset = -time.timezone
+    author_time = "{} {}{:02}{:02}".format(
+        timestamp,
+        "+" if utc_offset > 0 else "-",
+        abs(utc_offset) // 3600,
+        (abs(utc_offset) // 60) % 60,
+    )
+    lines = ["tree " + tree]
+    if parent:
+        lines.append("parent " + parent)
+    lines.append("author {} {}".format(author, author_time))
+    lines.append("committer {} {}".format(author, author_time))
+    lines.append("")
+    lines.append(message)
+    lines.append("")
+    data = "\n".join(lines).encode()
+    sha1 = hash_object(data, "commit")
+
+    update_ref("HEAD", (sha1 + "\n"))
+
+    print("committed to master: {:7}".format(sha1))
+    return sha1
+
+
+# TODO test then iter

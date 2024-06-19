@@ -18,6 +18,7 @@ def cat_file(args):
 
 def add(args):
     files = base.get_all_non_ignored_files(args.paths)
+    print(files)
     base.add(files)
 
 
@@ -35,7 +36,7 @@ def parse_args():
 
     init_parser = commands.add_parser("init", help="initialize a new repo")
     init_parser.add_argument("repo", help="directory name for new repo", nargs="?")
-    init_parser.set_default(func=init)
+    init_parser.set_defaults(func=init)
 
     hash_object_parser = commands.add_parser(
         "hash_object",
@@ -55,7 +56,7 @@ def parse_args():
         dest="write",
         help="write object to object store (as well as printing hash)",
     )
-    hash_object_parser.set_default(func=hash_object)
+    hash_object_parser.set_defaults(func=hash_object)
 
     cat_file_parser = commands.add_parser(
         "cat-file", help="display contents of an object"
@@ -65,13 +66,11 @@ def parse_args():
         "mode",
         choices=valid_modes,
         default="pretty",
-        dest="mode",
         help="object type (commit, tree, blob) or display mode (size, type, pretty)",
     )
     cat_file_parser.add_argument(
         "object_id",
         type=oid,
-        dest="oid",
         help="SHA-1 hash (or hash prefix) of object to display",
     )
     cat_file_parser.set_defaults(func=cat_file)
@@ -90,3 +89,28 @@ def parse_args():
         help="show object details (mode, hash, and stage number) in addition to path",
     )
     ls_files_parser.set_defaults(func=ls_files)
+
+    commit_parser = commands.add_parser(
+        "commit", help="commit current state of index to master branch"
+    )
+    commit_parser.add_argument(
+        "-a",
+        "--author",
+        help='commit author in format "A U Thor <author@example.com>" '
+        "(uses GIT_AUTHOR_NAME and GIT_AUTHOR_EMAIL environment "
+        "variables by default)",
+    )
+    commit_parser.add_argument(
+        "-m", "--message", required=True, help="text of commit message"
+    )
+
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()

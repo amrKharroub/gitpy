@@ -2,6 +2,8 @@ import sys, os
 import string
 import data as d
 import operator
+import re
+from typing import Generator
 
 
 def check_oid(oid: str) -> str:
@@ -49,11 +51,13 @@ def is_ignored(filename: str) -> bool:
     if os.path.exists(".gitignore"):
         with open(".gitignore", "r") as f:
             ignored_files = f.readlines()
-        return d.GIT_DIR in os.path.split(filename)
-    return d.GIT_DIR in os.path.split(filename)
+        ignored = re.search(d.GIT_DIR, filename) or re.search(filename, ignored_files)
+        return bool(ignored)
+    ignored = re.search(d.GIT_DIR, filename)
+    return bool(ignored)
 
 
-def flatten_dir(dir: str) -> iter[str]:
+def flatten_dir(dir: str) -> Generator[str, None, None]:
     "flatten a directory"
     for root, _, filenames in os.walk(dir):
         for filename in filenames:
@@ -99,11 +103,11 @@ def add(filepaths: list[str]):
         assert flags < (1 << 12)
         entry = d.IndexEntry(
             int(st.st_ctime),
-            int(st.st_ctime_ns),
+            int(st.st_ctime_ns) % (2**32),
             int(st.st_mtime),
-            int(st.st_mtime_ns),
+            int(st.st_mtime_ns) % (2**32),
             st.st_dev,
-            st.st_ino,
+            st.st_ino % (2**32),
             st.st_mode,
             st.st_uid,
             st.st_gid,
