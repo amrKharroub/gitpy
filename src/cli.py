@@ -1,10 +1,11 @@
 import argparse
 import data, base
+import os
 
 
 def init(args):
     data.init(args.repo)
-    print(f"Initialized empty ugit repository in {args.repo}/{data.GIT_DIR}")
+    print(f"Initialized empty gitpie repository in {args.repo}/{data.GIT_DIR}")
 
 
 def hash_object(args):
@@ -18,7 +19,6 @@ def cat_file(args):
 
 def add(args):
     files = base.get_all_non_ignored_files(args.paths)
-    print(files)
     base.add(files)
 
 
@@ -26,13 +26,50 @@ def ls_files(args):
     data.ls_files(args.stage)
 
 
+def commit(args):
+    data.commit(args.message, args.author)
+
+
+def congif(args):
+    key1, key2 = args.atts
+    if args.g:
+        old_config = data.get_config(1)
+        print(old_config)
+        path = os.path.join(os.path.expanduser("~"), ".gitpieconfig")
+    else:
+        old_config = data.get_config(0)
+        print(old_config)
+        path = os.path.join(data.GIT_DIR, ".gitpieconfig")
+    conf = old_config.copy()
+    conf[key1] = {key2: args.value}
+    data.set_config(conf, path)
+
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
     oid = base.check_oid
+    atts = base.check_atts
 
     commands = parser.add_subparsers(dest="commands")
     commands.required = True
+
+    config_parser = commands.add_parser(
+        "config", help="set config settings for the current repo or globally [--global]"
+    )
+    config_parser.add_argument(
+        "--global",
+        dest="g",
+        action="store_true",
+        help="set config to global (effects every repo)",
+    )
+    config_parser.add_argument(
+        "atts",
+        type=atts,
+        help="thing you want to set format [field].[subfield]",
+    )
+    config_parser.add_argument("value", help="value of the atts you want to set")
+    config_parser.set_defaults(func=congif)
 
     init_parser = commands.add_parser("init", help="initialize a new repo")
     init_parser.add_argument("repo", help="directory name for new repo", nargs="?")
@@ -103,6 +140,7 @@ def parse_args():
     commit_parser.add_argument(
         "-m", "--message", required=True, help="text of commit message"
     )
+    commit_parser.set_defaults(func=commit)
 
     return parser.parse_args()
 

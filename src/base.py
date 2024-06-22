@@ -14,6 +14,22 @@ def check_oid(oid: str) -> str:
     assert False, "Invalid object id"
 
 
+def check_atts(attributes: str) -> tuple[str, str]:
+    key1, key2 = attributes.split(".", 1)
+    match key1:
+        case "user":
+            if key2 in ["name", "email"]:
+                return (key1, key2)
+        case "core":
+            if key2 == "editor":
+                return (key1, key2)
+        case "remote":
+            if key2 == "url":
+                return (key1, key2)
+        case _:
+            raise ValueError("Incorrect fields, subfields or pattern")
+
+
 def cat_file(mode: str, sha1_prefix: str) -> None:
     """Write the contents of (or info about) object with given SHA-1 prefix to
     stdout. If mode is 'commit', 'tree', or 'blob', print raw data bytes of

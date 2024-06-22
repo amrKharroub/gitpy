@@ -191,7 +191,7 @@ def get_local_master_hash(ref: str, deref=True) -> str:
         return ref
     if head_pointer.startswith("ref: "):
         if deref:
-            return get_local_master_hash(head_pointer.split(":", 1)[1], deref=True)
+            return get_local_master_hash(head_pointer.split(": ", 1)[1], deref=True)
         return head_pointer.split(":", 1)[1]
     else:
         return head_pointer
@@ -204,16 +204,81 @@ def update_ref(ref: str, value: str, deref: bool = True):
     write_file(ref_path, value.encode())
 
 
+def set_config(config: dict[str, dict], path: str) -> None:
+    content = ""
+    for key, value in config.items():
+        content += f"[{key}]\n\t"
+        for key, val in value.items():
+            content += f"{key} = {val}\n\t"
+        content = content[:-1]
+    write_file(path, content.encode())
+
+
+def find_config_path_by_level(level: int = 2) -> str:
+    """returns config file path based on the level, default to 2
+
+    Args:
+        level (int): 0 is local, 1 is global, 2 local first then global if present
+
+    Raises:
+        ValueError: value error if level is not [0, 1, 2]
+
+    Returns:
+        str: path string if file is present else empty string
+    """
+    if level == 0:
+        if os.path.exists(os.path.join(GIT_DIR, ".gitpieconfig")):
+            return os.path.join(GIT_DIR, ".gitpieconfig")
+        return ""
+    elif level == 1:
+        if os.path.exists(os.path.join(os.path.expanduser("~"), ".gitpieconfig")):
+            return os.path.join(os.path.expanduser("~"), ".gitpieconfig")
+        return ""
+    elif level == 2:
+        if os.path.exists(os.path.join(GIT_DIR, ".gitpieconfig")):
+            return os.path.join(GIT_DIR, ".gitpieconfig")
+        elif os.path.exists(os.path.join(os.path.expanduser("~"), ".gitpieconfig")):
+            return os.path.join(os.path.expanduser("~"), ".gitpieconfig")
+        return ""
+    else:
+        raise ValueError("incorrect level code")
+
+
+def get_config(level: int = 2) -> dict[str, dict[str, str]]:
+    path = find_config_path_by_level(level)
+    if path:
+        content = read_file(path)
+    else:
+        return dict()
+    content_lines = content.replace(b"\n\t", b"\x00").splitlines()
+    result = dict()
+    for line in content_lines:
+        elements = line.split(b"\x00")
+        entry = {}
+        for element in elements[1:]:
+            element = element.decode()
+            key, value = element.split(" = ", 1)
+            entry[key] = value
+        result[elements[0].decode()[1:-1]] = entry
+    return result
+
+
 def commit(message, author=None):
     """Commit the current state of the index to master with given message.
     Return hash of commit object.
     """
+    if author is None:
+        config = get_config()
+        author_name = config.get("user_name")
+        author_email = config.get("user_email")
+        if not author_name or not author_email:
+            print(
+                "couldn't create a commit, please provide an author name and email, or set them via commands"
+            )
+            return ""
+        author = "{} <{}>".format(author_name, author_email)
     tree = write_tree()
     parent = get_local_master_hash("HEAD")
-    if author is None:
-        author = "{} <{}>".format(
-            os.environ["GIT_AUTHOR_NAME"], os.environ["GIT_AUTHOR_EMAIL"]
-        )
     timestamp = int(time.mktime(time.localtime()))
     utc_offset = -time.timezone
     author_time = "{} {}{:02}{:02}".format(
