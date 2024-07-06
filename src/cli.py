@@ -41,14 +41,29 @@ def congif(args):
         print(old_config)
         path = os.path.join(data.GIT_DIR, ".gitpieconfig")
     conf = old_config.copy()
-    conf[key1] = {key2: args.value}
+    if key1 in conf:
+        conf[key1].update({key2: args.value})
+    else:
+        conf[key1] = {key2: args.value}
     data.set_config(conf, path)
+
+
+def checkout(args):
+    base.checkout(args.commit_oid)
+
+
+def status(args):
+    data.status()
+
+
+def tag(args):
+    base.create_tage(args.name, args.oid)
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    oid = base.check_oid
+    oid = base.get_oid
     atts = base.check_atts
 
     commands = parser.add_subparsers(dest="commands")
@@ -72,7 +87,9 @@ def parse_args():
     config_parser.set_defaults(func=congif)
 
     init_parser = commands.add_parser("init", help="initialize a new repo")
-    init_parser.add_argument("repo", help="directory name for new repo", nargs="?")
+    init_parser.add_argument(
+        "repo", default=".", help="directory name for new repo", nargs="?"
+    )
     init_parser.set_defaults(func=init)
 
     hash_object_parser = commands.add_parser(
@@ -141,6 +158,22 @@ def parse_args():
         "-m", "--message", required=True, help="text of commit message"
     )
     commit_parser.set_defaults(func=commit)
+
+    checkout_parse = commands.add_parser(
+        "checkout", help="returns the working directory state of the commit provided"
+    )
+    checkout_parse.add_argument(
+        "commit_oid", help="commit oid that you want to checkout"
+    )
+    checkout_parse.set_defaults(func=checkout)
+
+    status_parser = commands.add_parser("status", help="show status of working copy")
+    status_parser.set_defaults(func=status)
+
+    tag_parser = commands.add_parser("tag")
+    tag_parser.set_defaults(func=tag)
+    tag_parser.add_argument("name")
+    tag_parser.add_argument("oid", default="HEAD", nargs="?", type=oid)
 
     return parser.parse_args()
 

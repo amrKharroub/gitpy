@@ -2,6 +2,7 @@ import os
 import hashlib, zlib, struct
 from collections import namedtuple
 import time
+import base
 
 VERSION: int = 2
 GIT_DIR: str = ".gitpie"
@@ -181,26 +182,41 @@ def write_tree():
     return hash_object(b"".join(tree_entries), "tree")
 
 
-# TODO rename this function
-def get_local_master_hash(ref: str, deref=True) -> str:
-    """Get current commit hash (SHA-1 string) of local master branch."""
+def get_ref_name(ref: str, deref: bool = True):
     master_path = os.path.join(GIT_DIR, ref)
     try:
-        head_pointer = read_file(master_path).decode().strip()
+        ref_name = read_file(master_path).decode().strip()
     except FileNotFoundError:
         return ref
-    if head_pointer.startswith("ref: "):
+    if ref_name.startswith("ref: "):
         if deref:
-            return get_local_master_hash(head_pointer.split(": ", 1)[1], deref=True)
-        return head_pointer.split(":", 1)[1]
-    else:
-        return head_pointer
+            return get_ref_name(ref_name.split(": ", 1)[1], deref=True)
+    return ref
+
+
+def get_ref_value(ref: str) -> str | None:
+    master_path = os.path.join(GIT_DIR, ref)
+    try:
+        ref_value = read_file(master_path).decode().strip()
+    except FileNotFoundError:
+        return None
+    if ref_value.startswith("ref: "):
+        return get_ref_value(ref_value.split(": ", 1)[1])
+    return ref_value
 
 
 def update_ref(ref: str, value: str, deref: bool = True):
-    ref = get_local_master_hash(ref, deref=deref)
+    """update ref to the given value, if deref is true it updates it recursively
+
+    Args:
+        ref (str): reference to be updated example HEAD
+        value (str): oid or symbolic ref
+        deref (bool, optional): recursive update. Defaults to True.
+    """
+    ref = get_ref_name(ref, deref=deref)
     assert value, f"expected a hash string {value} was given"
     ref_path = os.path.join(GIT_DIR, ref)
+    os.makedirs(os.path.dirname(ref_path), exist_ok=True)
     write_file(ref_path, value.encode())
 
 
@@ -269,8 +285,8 @@ def commit(message, author=None):
     """
     if author is None:
         config = get_config()
-        author_name = config.get("user_name")
-        author_email = config.get("user_email")
+        author_name = config["user"].get("name")
+        author_email = config["user"].get("email")
         if not author_name or not author_email:
             print(
                 "couldn't create a commit, please provide an author name and email, or set them via commands"
@@ -278,7 +294,7 @@ def commit(message, author=None):
             return ""
         author = "{} <{}>".format(author_name, author_email)
     tree = write_tree()
-    parent = get_local_master_hash("HEAD")
+    parent = get_ref_value("HEAD")
     timestamp = int(time.mktime(time.localtime()))
     utc_offset = -time.timezone
     author_time = "{} {}{:02}{:02}".format(
@@ -302,6 +318,3 @@ def commit(message, author=None):
 
     print("committed to master: {:7}".format(sha1))
     return sha1
-
-
-# TODO test then iter
