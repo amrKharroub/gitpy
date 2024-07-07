@@ -55,7 +55,14 @@ def checkout(args):
 
 
 def status(args):
-    data.status()
+    head = base.get_oid("HEAD")
+    branch = base.get_branch_name()
+    if branch:
+        print(f"On branch {branch}")
+    else:
+        print(f"HEAD  detached at {head[:10]}")
+    print()
+    base.status()
 
 
 def tag(args):
@@ -71,6 +78,13 @@ def branch(args):
     else:
         base.create_branch(args.name, args.start_point)
         print(f"Branch {args.name} create at {args.start_point[:10]}")
+
+
+def switch(args):
+    if args.name in base.iter_branch_names():
+        base.switch(args.name)
+    else:
+        raise ValueError(f"No branch with the name {args.name}")
 
 
 def lev_dist_loop(s1, s2):

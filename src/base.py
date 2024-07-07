@@ -191,15 +191,24 @@ def empty_dir(tree_lines: list) -> None:
                 pass
 
 
-def checkout(name):
-    oid = get_oid(name)
+def _built_working_dir(oid: str):
+    """it makes the current working directory the same state as it was on the provided commit"""
     commit = read_commit(oid)
     tree_lines = read_tree(commit.tree, recursive=True)
     empty_dir(tree_lines)
     restore_files(tree_lines)
     restore_index(tree_lines)
-    d.update_ref("HEAD", f"ref: {oid}", False)
 
+
+def checkout(name):
+    oid = get_oid(name)
+    _built_working_dir(oid)
+    d.update_ref("HEAD", oid, False)
+
+def switch(name):
+    oid = get_oid(name)
+    _built_working_dir(oid)
+    d.update_ref("HEAD", f"ref: {os.path.join("refs", "heads", name)}", False)
 
 def is_ignored(filename: str) -> bool:
 
