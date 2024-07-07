@@ -5,7 +5,7 @@ import time
 import base
 
 VERSION: int = 2
-GIT_DIR: str = ".gitpie"
+GIT_DIR: str = ".gitpy"
 IndexEntry = namedtuple(
     "IndexEntry",
     [
@@ -39,7 +39,7 @@ def write_file(path: str, data: bytes) -> None:
 
 
 def init(repo: str) -> None:
-    """Create directory for repo and initialize .gitpie directory."""
+    """Create directory for repo and initialize .gitpy directory."""
     os.makedirs(os.path.join(repo, GIT_DIR))
     for name in ["objects", "refs", "refs/heads"]:
         os.mkdir(os.path.join(repo, GIT_DIR, name))
@@ -243,18 +243,18 @@ def find_config_path_by_level(level: int = 2) -> str:
         str: path string if file is present else empty string
     """
     if level == 0:
-        if os.path.exists(os.path.join(GIT_DIR, ".gitpieconfig")):
-            return os.path.join(GIT_DIR, ".gitpieconfig")
+        if os.path.exists(os.path.join(GIT_DIR, ".gitpyconfig")):
+            return os.path.join(GIT_DIR, ".gitpyconfig")
         return ""
     elif level == 1:
-        if os.path.exists(os.path.join(os.path.expanduser("~"), ".gitpieconfig")):
-            return os.path.join(os.path.expanduser("~"), ".gitpieconfig")
+        if os.path.exists(os.path.join(os.path.expanduser("~"), ".gitpyconfig")):
+            return os.path.join(os.path.expanduser("~"), ".gitpyconfig")
         return ""
     elif level == 2:
-        if os.path.exists(os.path.join(GIT_DIR, ".gitpieconfig")):
-            return os.path.join(GIT_DIR, ".gitpieconfig")
-        elif os.path.exists(os.path.join(os.path.expanduser("~"), ".gitpieconfig")):
-            return os.path.join(os.path.expanduser("~"), ".gitpieconfig")
+        if os.path.exists(os.path.join(GIT_DIR, ".gitpyconfig")):
+            return os.path.join(GIT_DIR, ".gitpyconfig")
+        elif os.path.exists(os.path.join(os.path.expanduser("~"), ".gitpyconfig")):
+            return os.path.join(os.path.expanduser("~"), ".gitpyconfig")
         return ""
     else:
         raise ValueError("incorrect level code")

@@ -7,7 +7,7 @@ from collections import deque
 
 def init(args):
     data.init(args.repo)
-    print(f"Initialized empty gitpie repository in {args.repo}/{data.GIT_DIR}")
+    print(f"Initialized empty gitpy repository in {args.repo}/{data.GIT_DIR}")
 
 
 def hash_object(args):
@@ -37,11 +37,11 @@ def congif(args):
     if args.g:
         old_config = data.get_config(1)
         print(old_config)
-        path = os.path.join(os.path.expanduser("~"), ".gitpieconfig")
+        path = os.path.join(os.path.expanduser("~"), ".gitpyconfig")
     else:
         old_config = data.get_config(0)
         print(old_config)
-        path = os.path.join(data.GIT_DIR, ".gitpieconfig")
+        path = os.path.join(data.GIT_DIR, ".gitpyconfig")
     conf = old_config.copy()
     if key1 in conf:
         conf[key1].update({key2: args.value})
@@ -87,22 +87,22 @@ def switch(args):
         raise ValueError(f"No branch with the name {args.name}")
 
 
-def lev_dist_loop(s1, s2):
+def lev_dist_loop(input, target):
     # plus one is for empty strings
-    cache = [["-"] * (len(s2) + 1) for _ in range(len(s1) + 1)]
+    cache = [["-"] * (len(target) + 1) for _ in range(len(input) + 1)]
     cache[0][0] = 0
 
-    for n2 in range(1, len(s2) + 1):
+    for n2 in range(1, len(target) + 1):
         n1 = 0
         cache[n1][n2] = n2
 
-    for n1 in range(1, len(s1) + 1):
+    for n1 in range(1, len(input) + 1):
         n2 = 0
         cache[n1][n2] = n1
 
-    for n1 in range(1, len(s1) + 1):
-        for n2 in range(1, len(s2) + 1):
-            if s1[n1 - 1] == s2[n2 - 1]:
+    for n1 in range(1, len(input) + 1):
+        for n2 in range(1, len(target) + 1):
+            if input[n1 - 1] == target[n2 - 1]:
                 cache[n1][n2] = cache[n1 - 1][n2 - 1]
                 continue
 
@@ -119,7 +119,7 @@ def lev_dist_loop(s1, s2):
                 cache[n1][n2] = subst
 
             cache[n1][n2] += 1
-    return cache[len(s1)][len(s2)]
+    return cache[len(input)][len(target)]
 
 
 def closestMatch(InputArg: str, arguments: list) -> str | None:
