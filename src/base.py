@@ -303,6 +303,11 @@ def iter_branch_names():
         if entry.is_file():
             yield entry.name
 
+def iter_tag_names():
+    for entry in os.scandir(os.path.join("refs", "tags")):
+        if entry.is_file():
+            yield entry.name
+
 
 def get_status():
     """Get status of working copy, return tuple of (changed_paths, new_paths,
@@ -386,5 +391,5 @@ def status():
         print("your working directory is clean")
 
 
-def create_tage(name, oid):
+def create_tag(name, oid):
     d.update_ref(os.path.join("refs", "tags", name), oid)

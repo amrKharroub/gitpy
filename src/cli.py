@@ -66,7 +66,11 @@ def status(args):
 
 
 def tag(args):
-    base.create_tage(args.name, args.oid)
+    if not args.name:
+        for _tag in base.iter_tag_names():
+            print(_tag)
+    else:
+        base.create_tag(args.name, args.oid)
 
 
 def branch(args):
@@ -151,6 +155,7 @@ class customArgParser(argparse.ArgumentParser):
             "status",
             "tag",
             "branch",
+            "switch",
         ]
         super().__init__(*args, **kwargs)
 
@@ -280,13 +285,17 @@ def parse_args():
 
     tag_parser = commands.add_parser("tag")
     tag_parser.set_defaults(func=tag)
-    tag_parser.add_argument("name")
+    tag_parser.add_argument("name", nargs="?")
     tag_parser.add_argument("oid", default="HEAD", nargs="?", type=oid)
 
     branch_parser = commands.add_parser("branch")
     branch_parser.set_defaults(func=branch)
     branch_parser.add_argument("name", nargs="?")
     branch_parser.add_argument("start_point", default="HEAD", type=oid, nargs="?")
+
+    switch_parser = commands.add_parser("switch")
+    switch_parser.add_argument("name", help="branch name to be switch to")
+    switch_parser.set_defaults(func=switch)
 
     return parser.parse_args()
 
