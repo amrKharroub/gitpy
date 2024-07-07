@@ -276,6 +276,25 @@ def add(filepaths: list[str]):
     d.write_index(entries)
 
 
+def create_branch(name: str, oid: str):
+    """creates a branch starting from provided commit id"""
+    d.update_ref(os.path.join("refs", "heads", name), oid)
+
+
+def get_branch_name():
+    head = d.get_ref_name("HEAD")
+    if head == "HEAD":
+        return None
+    assert head.startswith(os.path.join("refs", "heads"))
+    return os.path.relpath(head, os.path.join("refs", "heads"))
+
+
+def iter_branch_names():
+    for entry in os.scandir(os.path.join(d.GIT_DIR, "refs", "heads")):
+        if entry.is_file():
+            yield entry.name
+
+
 def get_status():
     """Get status of working copy, return tuple of (changed_paths, new_paths,
     deleted_paths).
