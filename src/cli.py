@@ -1,6 +1,8 @@
 import argparse
 import data, base
 import os
+from math import ceil
+from collections import deque
 
 
 def init(args):
@@ -71,8 +73,89 @@ def branch(args):
         print(f"Branch {args.name} create at {args.start_point[:10]}")
 
 
+def lev_dist_loop(s1, s2):
+    # plus one is for empty strings
+    cache = [["-"] * (len(s2) + 1) for _ in range(len(s1) + 1)]
+    cache[0][0] = 0
+
+    for n2 in range(1, len(s2) + 1):
+        n1 = 0
+        cache[n1][n2] = n2
+
+    for n1 in range(1, len(s1) + 1):
+        n2 = 0
+        cache[n1][n2] = n1
+
+    for n1 in range(1, len(s1) + 1):
+        for n2 in range(1, len(s2) + 1):
+            if s1[n1 - 1] == s2[n2 - 1]:
+                cache[n1][n2] = cache[n1 - 1][n2 - 1]
+                continue
+
+            remove = cache[n1 - 1][n2]
+            add = cache[n1][n2 - 1]
+            subst = cache[n1 - 1][n2 - 1]
+
+            cache[n1][n2] = remove
+
+            if cache[n1][n2] > add:
+                cache[n1][n2] = add
+
+            if cache[n1][n2] > subst:
+                cache[n1][n2] = subst
+
+            cache[n1][n2] += 1
+    return cache[len(s1)][len(s2)]
+
+
+def closestMatch(InputArg: str, arguments: list) -> str | None:
+    min_global = 12
+    potential_commands = deque()
+    for arg in arguments:
+        minimum = ceil(len(arg) / 2)
+        distance = lev_dist_loop(InputArg, arg)
+        print(f"distance = {distance} at {arg} with min = {minimum}")
+        if distance <= minimum:
+            if distance < min_global:
+                potential_commands.appendleft(arg)
+            else:
+                potential_commands.append(arg)
+    return potential_commands[0] if potential_commands else None
+
+
+class customArgParser(argparse.ArgumentParser):
+    def __init__(self, *args, **kwargs):
+        self.valid_commands = [
+            "config",
+            "init",
+            "hash-object",
+            "cat-file",
+            "add",
+            "ls-files",
+            "commit",
+            "checkout",
+            "status",
+            "tag",
+            "branch",
+        ]
+        super().__init__(*args, **kwargs)
+
+    def error(self, message):
+        if "invalid choice:" in message:
+            invalid_choice = (
+                message.split("invalid choice: ")[1].split(" ")[0].replace("'", "")
+            )
+            closest_command = closestMatch(invalid_choice, self.valid_commands)
+            if closest_command:
+                message = f"Unknown command: '{invalid_choice}'. Did you mean '{closest_command}'?\n"
+            else:
+                message = f"Unknown command: '{invalid_choice}'.\n"
+
+        super().error(message)
+
+
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = customArgParser()
 
     oid = base.get_oid
     atts = base.check_atts
@@ -104,7 +187,7 @@ def parse_args():
     init_parser.set_defaults(func=init)
 
     hash_object_parser = commands.add_parser(
-        "hash_object",
+        "hash-object",
         help="'hash contents of given path, optionally write to object store",
     )
     hash_object_parser.add_argument("path", help="path of file to hash")
